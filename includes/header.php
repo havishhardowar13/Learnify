@@ -11,7 +11,7 @@ $page_title = $page_title ?? 'Learnify - Learn Skills for Your Future';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo htmlspecialchars($page_title); ?></title>
-    <link rel="stylesheet" href="../css/style.css">  <!-- Added ../ -->
+    <link rel="stylesheet" href="../css/style.css">  
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
@@ -19,7 +19,7 @@ $page_title = $page_title ?? 'Learnify - Learn Skills for Your Future';
     <!-- Header -->
     <header class="header">
         <nav class="navbar">
-            <a href="../index.php" class="logo">Learnify</a>  <!-- Added ../ -->
+            <a href="../index.php" class="logo">Learnify</a> 
             <ul class="nav-links">
                 <li><a href="../index.php" class="<?php echo $current_page == 'index.php' ? 'active' : ''; ?>">Home</a></li>
                 <li><a href="../courses.php" class="<?php echo $current_page == 'courses.php' ? 'active' : ''; ?>">Courses</a></li>
@@ -44,12 +44,12 @@ $page_title = $page_title ?? 'Learnify - Learn Skills for Your Future';
                             <i class="fas fa-user"></i> 
                             <?php echo htmlspecialchars($_SESSION['first_name'] ?? 'User'); ?>
                         </span>
-                        <a href="../dashboard.php" class="btn btn-outline">Dashboard</a>  <!-- Added ../ -->
-                        <a href="../logout.php" class="btn btn-primary">Logout</a>  <!-- Added ../ -->
+                        <a href="../dashboard.php" class="btn btn-outline">Dashboard</a>  
+                        <a href="../logout.php" class="btn btn-primary">Logout</a>  
                     </div>
                 <?php else: ?>
-                    <a href="../login.php" class="btn btn-outline">Login</a>  <!-- Added ../ -->
-                    <a href="../register.php" class="btn btn-primary">Sign Up</a>  <!-- Added ../ -->
+                    <a href="../login.php" class="btn btn-outline">Login</a> 
+                    <a href="../register.php" class="btn btn-primary">Sign Up</a>  
                 <?php endif; ?>
             </div>
         </nav>
