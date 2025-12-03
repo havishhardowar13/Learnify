@@ -1,7 +1,13 @@
 <?php
-// actions/logout.php
-require_once __DIR__ . '/../includes/auth.php';
-logout_user();
-header('Location: /login.php?loggedout=1');
-exit;
+
+session_start();
+
+$_SESSION = [];
+
+session_destroy();
+
+header("Location: Login.php?message=You have been logged out successfully");
+exit();
+?>
+
 
