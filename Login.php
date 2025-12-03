@@ -1,6 +1,6 @@
 <?php
 session_start();
-require 'db.php';
+require 'includes/config.php';
 
 
 $email = trim($_POST['email'] ?? '');
@@ -46,6 +46,7 @@ $_SESSION['role'] = $user['role'];
 
 echo json_encode(["status" => "success", "message" => "Login successful"]);
 ?>
+
 
 
 
