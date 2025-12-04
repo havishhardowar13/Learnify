@@ -1,16 +1,8 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Learnify - Learn Skills for Your Future</title>
-    <link rel="stylesheet" href="css/style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-</head>
-<body>
-    <!-- Header -->
-   <?php require_once 'includes/header.php'; ?>
+<?php
+// index.php - Home page
+$page_title = "Learnify - Learn Skills for Your Future";
+require_once 'includes/header.php';
+?>
 
     <!-- Hero Section -->
     <section class="hero">
@@ -162,9 +154,6 @@
         </div>
     </section>
 
-    <!-- Footer -->
-    <?php require_once 'includes/footer.php'; ?>
-
     <script>
         // Add fade-in animation on scroll
         const observerOptions = {
@@ -203,5 +192,7 @@
             });
         });
     </script>
-</body>
-</html>
+
+<?php
+require_once 'includes/footer.php';
+?>
