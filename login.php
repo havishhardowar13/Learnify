@@ -1,5 +1,53 @@
 <?php
-require 'includes/config.php';
+// login.php
+require 'includes/config.php'; // starts session, sets $db, helpers, etc.
+
+$errors = [];
+$success = false;
+
+// Process form when submitted
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $email    = sanitizeInput($_POST['email'] ?? '');
+    $password = $_POST['password'] ?? '';
+
+    // Basic validation
+    if ($email === '' || $password === '') {
+        $errors['general'] = 'Email and password are required';
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $errors['general'] = 'Invalid email format';
+    } else {
+        // Look up user
+        try {
+            $sql  = "SELECT user_id, email, password_hash, role, is_active FROM users WHERE email = ?";
+            $stmt = $db->prepare($sql);
+            $stmt->execute([$email]);
+            $user = $stmt->fetch();
+        } catch (PDOException $e) {
+            error_log('Login query error: ' . $e->getMessage());
+            $errors['general'] = 'System error. Please try again later.';
+            $user = false;
+        }
+
+        if ($user) {
+            if ((int)$user['is_active'] !== 1) {
+                $errors['general'] = 'Account is inactive';
+            } elseif (!password_verify($password, $user['password_hash'])) {
+                $errors['general'] = 'Invalid email or password';
+            } else {
+                // Success: set session and redirect
+                $_SESSION['user_id']   = $user['user_id'];
+                $_SESSION['email']     = $user['email'];
+                $_SESSION['user_role'] = $user['role'];
+
+                $success = true;
+                header('Location: dashboard.php');
+                exit;
+            }
+        } else {
+            $errors['general'] = 'Invalid email or password';
+        }
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -35,18 +83,21 @@ require 'includes/config.php';
     </div>
 
     <div style="max-width: 400px; margin: 0 auto; background: white; padding: 2rem; border-radius: 15px; box-shadow: var(--card-shadow);">
-        <div id="loginMessage"
-             style="display:none; margin-bottom:1rem; padding:0.75rem 1rem; border-radius:8px; font-size:0.9rem;"></div>
+        <?php if (!empty($errors['general'])): ?>
+            <div style="background:#f8d7da;color:#721c24;padding:0.75rem 1rem;border-radius:8px;margin-bottom:1rem;">
+                <?php echo htmlspecialchars($errors['general']); ?>
+            </div>
+        <?php endif; ?>
 
-        <form id="loginForm" method="POST" action="login_process.php" novalidate>
+        <form method="POST" action="login.php" novalidate>
             <div class="form-group">
                 <label for="email">Email Address *</label>
                 <input type="email"
                        id="email"
                        name="email"
                        class="form-control"
+                       value="<?php echo isset($_POST['email']) ? htmlspecialchars($_POST['email']) : ''; ?>"
                        required>
-                <div class="error-message"></div>
             </div>
 
             <div class="form-group">
@@ -56,7 +107,6 @@ require 'includes/config.php';
                        name="password"
                        class="form-control"
                        required>
-                <div class="error-message"></div>
             </div>
 
             <button type="submit" class="btn enroll-btn" style="width:100%;">Login</button>
@@ -73,45 +123,5 @@ require 'includes/config.php';
         <p>&copy; 2025 Learnify. All rights reserved.</p>
     </div>
 </footer>
-
-<script>
-// Submit login form via fetch to get JSON response and show message
-document.getElementById('loginForm').addEventListener('submit', function (e) {
-    e.preventDefault();
-
-    const form = e.target;
-    const formData = new FormData(form);
-    const msgBox = document.getElementById('loginMessage');
-
-    fetch(form.action, {
-        method: 'POST',
-        body: formData
-    })
-        .then(r => r.json())
-        .then(data => {
-            msgBox.style.display = 'block';
-            if (data.status === 'success') {
-                msgBox.style.background = '#d4edda';
-                msgBox.style.color = '#155724';
-                msgBox.textContent = data.message || 'Login successful';
-
-                // Redirect to dashboard after short delay
-                setTimeout(() => {
-                    window.location.href = 'dashboard.php';
-                }, 800);
-            } else {
-                msgBox.style.background = '#f8d7da';
-                msgBox.style.color = '#721c24';
-                msgBox.textContent = data.message || 'Login failed';
-            }
-        })
-        .catch(() => {
-            msgBox.style.display = 'block';
-            msgBox.style.background = '#f8d7da';
-            msgBox.style.color = '#721c24';
-            msgBox.textContent = 'System error. Please try again.';
-        });
-});
-</script>
 </body>
 </html>
