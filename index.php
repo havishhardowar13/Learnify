@@ -1,10 +1,30 @@
-<?php
-// Set page title before including header
-$page_title = 'Learnify - Learn Skills for Your Future';
-
-// Include header
-include_once 'includes/header.php';
-?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Learnify - Learn Skills for Your Future</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <nav class="navbar">
+            <a href="index.php" class="logo">Learnify</a>
+            <ul class="nav-links">
+                <li><a href="index.php">Home</a></li>
+                <li><a href="courses.php">Courses</a></li>
+                <li><a href="about.php">About</a></li>
+                <li><a href="contact.php">Contact</a></li>
+            </ul>
+            <div class="auth-buttons">
+                <a href="login.php" class="btn btn-outline">Login</a>
+                <a href="register.php" class="btn btn-primary">Sign Up</a>
+            </div>
+        </nav>
+    </header>
 
     <!-- Hero Section -->
     <section class="hero">
@@ -156,6 +176,21 @@ include_once 'includes/header.php';
         </div>
     </section>
 
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <h3>Learnify</h3>
+            <p>Transforming education through innovative online learning</p>
+            <div style="margin: 2rem 0;">
+                <a href="#" style="color: white; margin: 0 1rem; font-size: 1.5rem;"><i class="fab fa-facebook"></i></a>
+                <a href="#" style="color: white; margin: 0 1rem; font-size: 1.5rem;"><i class="fab fa-twitter"></i></a>
+                <a href="#" style="color: white; margin: 0 1rem; font-size: 1.5rem;"><i class="fab fa-linkedin"></i></a>
+                <a href="#" style="color: white; margin: 0 1rem; font-size: 1.5rem;"><i class="fab fa-instagram"></i></a>
+            </div>
+            <p>&copy; 2024 Learnify. All rights reserved.</p>
+        </div>
+    </footer>
+
     <script>
         // Add fade-in animation on scroll
         const observerOptions = {
@@ -194,8 +229,5 @@ include_once 'includes/header.php';
             });
         });
     </script>
-
-<?php
-// Include footer
-include_once 'includes/footer.php';
-?>
+</body>
+</html>
