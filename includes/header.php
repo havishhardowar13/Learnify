@@ -11,7 +11,7 @@ $page_title = $page_title ?? 'Learnify - Learn Skills for Your Future';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo htmlspecialchars($page_title); ?></title>
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>css/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
@@ -68,4 +68,5 @@ $page_title = $page_title ?? 'Learnify - Learn Skills for Your Future';
             <?php echo htmlspecialchars($_SESSION['error']); ?>
             <?php unset($_SESSION['error']); ?>
         </div>
+
     <?php endif; ?>
