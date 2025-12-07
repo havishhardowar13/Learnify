@@ -1,30 +1,16 @@
 <?php
-// logout.php
+// logout.php - Simpler version
+require_once 'includes/config.php';
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Unset all session variables
-$_SESSION = [];
-
-// If using cookies for the session ID, delete the session cookie
-if (ini_get('session.use_cookies')) {
-    $params = session_get_cookie_params();
-    setcookie(session_name(), '', time() - 42000,
-        $params['path'],
-        $params['domain'],
-        $params['secure'],
-        $params['httponly']
-    );
-}
-
-// Destroy the session
+// Immediately destroy the session
 session_destroy();
 
-// Redirect to login page
-header("Location: login.php?message=You have been logged out successfully");
-exit;
+// Clear any existing session cookies
+if (isset($_COOKIE[session_name()])) {
+    setcookie(session_name(), '', time() - 3600, '/');
+}
 
-
-
+// Redirect to login
+header("Location: login.php");
+exit();
+?>
