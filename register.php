@@ -18,9 +18,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $email      = sanitizeInput($_POST['email'] ?? '');
         $password   = $_POST['password'] ?? '';
         $confirm    = $_POST['confirm_password'] ?? '';
+        $role       = sanitizeInput($_POST['role'] ?? 'student'); // Get role from form
 
-        // Default role for signup
-        $role = 'student';
+        // Validate role
+        $allowed_roles = ['student', 'instructor'];
+        if (!in_array($role, $allowed_roles)) {
+            $errors['role'] = 'Please select a valid role';
+        }
 
         // Validation
         if ($first_name === '') {
@@ -72,11 +76,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $user_id = $db->lastInsertId();
 
                     // Auto-login after registration
-                    $_SESSION['user_id']   = $user_id;
-                    $_SESSION['email']     = $email;
+                    $_SESSION['user_id'] = $user_id;
+                    $_SESSION['first_name'] = $first_name;
+                    $_SESSION['last_name'] = $last_name;
+                    $_SESSION['email'] = $email;
                     $_SESSION['user_role'] = $role;
 
                     $success = true;
+                    
+                    // Redirect based on role after successful registration
+                    if ($success) {
+                        if ($role === 'instructor') {
+                            header('Location: dashboard.php');
+                        } else {
+                            header('Location: dashboard.php');
+                        }
+                        exit;
+                    }
                 }
             } catch (PDOException $e) {
                 error_log('Signup error: ' . $e->getMessage());
@@ -97,6 +113,64 @@ $csrf_token = generateCSRFToken();
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet"
           href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        .role-options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .role-option {
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+        
+        .role-option:hover {
+            border-color: var(--primary);
+            background-color: rgba(52, 152, 219, 0.05);
+        }
+        
+        .role-option.selected {
+            border-color: var(--primary);
+            background-color: rgba(52, 152, 219, 0.1);
+        }
+        
+        .role-option i {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+        
+        .role-option.student i {
+            color: #28a745;
+        }
+        
+        .role-option.instructor i {
+            color: #ffc107;
+        }
+        
+        .role-input {
+            display: none;
+        }
+        
+        .role-description {
+            font-size: 0.85rem;
+            color: var(--text-light);
+            margin-top: 0.5rem;
+        }
+        
+        .role-error {
+            color: #dc3545;
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+            display: block;
+        }
+    </style>
 </head>
 <body>
     <!-- Header (simple version; adapt to your header include if you want) -->
@@ -120,20 +194,13 @@ $csrf_token = generateCSRFToken();
         <div class="section-header">
             <h2>Create your account</h2>
             <hr class="divider">
-            <p>Join Learnify and start learning new skills today.</p>
+            <p>Join Learnify and start your learning or teaching journey today.</p>
         </div>
 
         <div style="max-width: 500px; margin: 0 auto; background: white; padding: 2rem; border-radius: 15px; box-shadow: var(--card-shadow);">
             <?php if (!empty($errors['general'])): ?>
                 <div class="alert-success" style="background:#f8d7da;color:#721c24;border-color:#f5c6cb;">
                     <?php echo htmlspecialchars($errors['general']); ?>
-                </div>
-            <?php endif; ?>
-
-            <?php if ($success): ?>
-                <div class="alert-success">
-                    <i class="fas fa-check-circle"></i>
-                    Registration successful! You are now logged in.
                 </div>
             <?php endif; ?>
 
@@ -179,6 +246,33 @@ $csrf_token = generateCSRFToken();
                     <?php endif; ?>
                 </div>
 
+                <!-- Role Selection -->
+                <div class="form-group">
+                    <label>I want to join as: *</label>
+                    <div class="role-options">
+                        <div class="role-option student <?php echo (isset($_POST['role']) && $_POST['role'] === 'student') ? 'selected' : ''; ?>" onclick="selectRole('student')">
+                            <input type="radio" name="role" value="student" id="role_student" class="role-input" <?php echo (!isset($_POST['role']) || (isset($_POST['role']) && $_POST['role'] === 'student')) ? 'checked' : ''; ?> required>
+                            <label for="role_student">
+                                <i class="fas fa-user-graduate"></i>
+                                <strong>Student</strong>
+                                <div class="role-description">Enroll in courses and learn new skills</div>
+                            </label>
+                        </div>
+                        
+                        <div class="role-option instructor <?php echo (isset($_POST['role']) && $_POST['role'] === 'instructor') ? 'selected' : ''; ?>" onclick="selectRole('instructor')">
+                            <input type="radio" name="role" value="instructor" id="role_instructor" class="role-input" <?php echo (isset($_POST['role']) && $_POST['role'] === 'instructor') ? 'checked' : ''; ?>>
+                            <label for="role_instructor">
+                                <i class="fas fa-chalkboard-teacher"></i>
+                                <strong>Instructor</strong>
+                                <div class="role-description">Create and teach courses</div>
+                            </label>
+                        </div>
+                    </div>
+                    <?php if (isset($errors['role'])): ?>
+                        <div class="error-message show"><?php echo htmlspecialchars($errors['role']); ?></div>
+                    <?php endif; ?>
+                </div>
+
                 <div class="form-group">
                     <label for="password">Password *</label>
                     <input type="password"
@@ -217,5 +311,28 @@ $csrf_token = generateCSRFToken();
             <p>&copy; 2025 Learnify. All rights reserved.</p>
         </div>
     </footer>
+
+    <script>
+        function selectRole(role) {
+            // Remove selected class from all options
+            document.querySelectorAll('.role-option').forEach(option => {
+                option.classList.remove('selected');
+            });
+            
+            // Add selected class to clicked option
+            document.querySelector('.role-option.' + role).classList.add('selected');
+            
+            // Check the corresponding radio button
+            document.getElementById('role_' + role).checked = true;
+        }
+        
+        // Initialize role selection on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const selectedRole = document.querySelector('input[name="role"]:checked');
+            if (selectedRole) {
+                selectRole(selectedRole.value);
+            }
+        });
+    </script>
 </body>
 </html>
