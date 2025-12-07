@@ -1,24 +1,22 @@
 <?php
 // login.php
-require 'includes/config.php'; // starts session, sets $db, helpers, etc.
+require 'includes/config.php';
 
 $errors = [];
 $success = false;
 
-// Process form when submitted
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email    = sanitizeInput($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
 
-    // Basic validation
     if ($email === '' || $password === '') {
         $errors['general'] = 'Email and password are required';
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $errors['general'] = 'Invalid email format';
     } else {
-        // Look up user
         try {
-            $sql  = "SELECT user_id, email, password_hash, role, is_active FROM users WHERE email = ?";
+            // FIXED: Added first_name and last_name to the SELECT statement
+            $sql  = "SELECT user_id, email, password_hash, role, is_active, first_name, last_name FROM users WHERE email = ?";
             $stmt = $db->prepare($sql);
             $stmt->execute([$email]);
             $user = $stmt->fetch();
@@ -34,9 +32,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } elseif (!password_verify($password, $user['password_hash'])) {
                 $errors['general'] = 'Invalid email or password';
             } else {
-                // Success: set session and redirect
-                $_SESSION['user_id']   = $user['user_id'];
-                $_SESSION['email']     = $user['email'];
+                // Now these will exist because we selected them
+                $_SESSION['user_id'] = $user['user_id'];
+                $_SESSION['first_name'] = $user['first_name'];
+                $_SESSION['last_name'] = $user['last_name'];
+                $_SESSION['email'] = $user['email'];
                 $_SESSION['user_role'] = $user['role'];
 
                 $success = true;
