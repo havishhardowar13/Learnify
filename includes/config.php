@@ -79,6 +79,43 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// Debug: Log session state for debugging
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
+// Backward compatibility: If user_role exists, copy to role
+if (isset($_SESSION['user_role']) && !isset($_SESSION['role'])) {
+    $_SESSION['role'] = $_SESSION['user_role'];
+    error_log("Copied user_role to role: " . $_SESSION['role']);
+}
+
+// Or if role exists, copy to user_role for compatibility
+if (isset($_SESSION['role']) && !isset($_SESSION['user_role'])) {
+    $_SESSION['user_role'] = $_SESSION['role'];
+    error_log("Copied role to user_role: " . $_SESSION['user_role']);
+}
+
+// Debug session if requested
+if (isset($_GET['debug']) && $_GET['debug'] == 'session') {
+    echo "<pre>";
+    echo "Session ID: " . session_id() . "\n";
+    echo "Session status: " . session_status() . "\n";
+    echo "Session data:\n";
+    print_r($_SESSION);
+    echo "</pre>";
+    exit;
+}
+// =============================================================
+
+// Define BASE_URL for your local setup
+if ($_SERVER['SERVER_NAME'] == 'localhost' || $_SERVER['SERVER_NAME'] == '127.0.0.1') {
+    // For local development
+    define('BASE_URL', 'http://localhost/Learnify-main/');
+} else {
+    // For production (update with your actual domain)
+    define('BASE_URL', 'https://yourdomain.com/');
+}
+
 // Security headers
 header("X-Frame-Options: DENY");
 header("X-Content-Type-Options: nosniff");
@@ -230,4 +267,5 @@ if ($_SERVER['SERVER_NAME'] == 'localhost' || $_SERVER['SERVER_NAME'] == '127.0.
         );
     }
 }
+
 ?>
