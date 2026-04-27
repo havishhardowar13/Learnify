@@ -1,0 +1,159 @@
+<?php
+/**
+ * api/json_courses.php
+ *
+ * Demonstrates:
+ *  1. PHP reading (consuming) courses.json from disk
+ *  2. Validating the JSON against courses.schema.json at CONSUMPTION time
+ *  3. Returning the validated data as a JSON API response
+ *
+ * Called by jQuery/AJAX on courses.php page.
+ */
+
+require_once __DIR__ . '/../includes/config.php';
+
+header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: *');
+
+$jsonFile   = __DIR__ . '/../data/courses.json';
+$schemaFile = __DIR__ . '/../data/courses.schema.json';
+
+// ── 1. Read JSON file ──────────────────────────────────────────────────────
+if (!file_exists($jsonFile)) {
+    jsonResponse(['error' => 'courses.json not found'], 500);
+}
+
+$raw = file_get_contents($jsonFile);
+$data = json_decode($raw, true);
+
+if (json_last_error() !== JSON_ERROR_NONE) {
+    jsonResponse(['error' => 'Invalid JSON: ' . json_last_error_msg()], 500);
+}
+
+// ── 2. Validate against schema (PHP-side consumption-time validation) ──────
+$schema   = json_decode(file_get_contents($schemaFile), true);
+$errors   = validateAgainstSchema($data, $schema);
+
+if (!empty($errors)) {
+    jsonResponse(['error' => 'JSON Schema validation failed', 'details' => $errors], 422);
+}
+
+// ── 3. Optional filter by category or search term ─────────────────────────
+$search   = strtolower(trim($_GET['search'] ?? ''));
+$category = strtolower(trim($_GET['category'] ?? ''));
+$level    = strtolower(trim($_GET['level'] ?? ''));
+
+$courses = $data['courses'];
+
+if ($search !== '') {
+    $courses = array_filter($courses, fn($c) =>
+        str_contains(strtolower($c['title']), $search) ||
+        str_contains(strtolower($c['description']), $search)
+    );
+}
+if ($category !== '') {
+    $courses = array_filter($courses, fn($c) =>
+        str_contains(strtolower($c['category']), $category)
+    );
+}
+if (in_array($level, ['beginner', 'intermediate', 'advanced'])) {
+    $courses = array_filter($courses, fn($c) => $c['level'] === $level);
+}
+
+jsonResponse([
+    'validated' => true,
+    'data'      => array_values($courses),
+    'metadata'  => $data['metadata'],
+]);
+
+// ── Lightweight JSON Schema validator (subset) ────────────────────────────
+/**
+ * validateAgainstSchema()
+ * A minimal PHP JSON Schema validator covering types, required,
+ * enum, minLength, minimum, maxLength — enough to showcase the concept
+ * without pulling in an external library.
+ *
+ * For production, use justinrainbow/json-schema via Composer.
+ */
+function validateAgainstSchema(mixed $data, array $schema, string $path = '#'): array {
+    $errors = [];
+
+    // type check
+    if (isset($schema['type'])) {
+        $expectedType = $schema['type'];
+        $actualType   = gettype($data);
+        $typeMap = ['integer' => 'integer', 'number' => ['integer','double'],
+                    'string' => 'string', 'boolean' => 'boolean',
+                    'array' => 'array', 'object' => 'array'];
+
+        $allowed = is_array($typeMap[$expectedType] ?? null)
+            ? $typeMap[$expectedType]
+            : [$typeMap[$expectedType] ?? $expectedType];
+
+        if (!in_array($actualType, $allowed)) {
+            $errors[] = "$path: expected $expectedType, got $actualType";
+        }
+    }
+
+    // required properties
+    if (isset($schema['required']) && is_array($data)) {
+        foreach ($schema['required'] as $req) {
+            if (!array_key_exists($req, $data)) {
+                $errors[] = "$path: missing required property '$req'";
+            }
+        }
+    }
+
+    // enum
+    if (isset($schema['enum']) && !in_array($data, $schema['enum'], true)) {
+        $errors[] = "$path: value must be one of [" . implode(', ', $schema['enum']) . "]";
+    }
+
+    // string constraints
+    if ($schema['type'] === 'string' && is_string($data)) {
+        if (isset($schema['minLength']) && strlen($data) < $schema['minLength']) {
+            $errors[] = "$path: string too short (min {$schema['minLength']})";
+        }
+        if (isset($schema['maxLength']) && strlen($data) > $schema['maxLength']) {
+            $errors[] = "$path: string too long (max {$schema['maxLength']})";
+        }
+        if (isset($schema['pattern']) && !preg_match('/' . $schema['pattern'] . '/', $data)) {
+            $errors[] = "$path: string does not match pattern {$schema['pattern']}";
+        }
+    }
+
+    // numeric constraints
+    if (in_array($schema['type'] ?? '', ['number', 'integer']) && is_numeric($data)) {
+        if (isset($schema['minimum']) && $data < $schema['minimum']) {
+            $errors[] = "$path: value below minimum {$schema['minimum']}";
+        }
+        if (isset($schema['maximum']) && $data > $schema['maximum']) {
+            $errors[] = "$path: value above maximum {$schema['maximum']}";
+        }
+    }
+
+    // array items
+    if (($schema['type'] ?? '') === 'array' && is_array($data)) {
+        if (isset($schema['minItems']) && count($data) < $schema['minItems']) {
+            $errors[] = "$path: array has fewer than {$schema['minItems']} items";
+        }
+        if (isset($schema['items'])) {
+            foreach ($data as $i => $item) {
+                $errors = array_merge($errors, validateAgainstSchema($item, $schema['items'], "$path[$i]"));
+            }
+        }
+    }
+
+    // object properties
+    if (($schema['type'] ?? '') === 'object' && is_array($data)) {
+        if (isset($schema['properties'])) {
+            foreach ($schema['properties'] as $propName => $propSchema) {
+                if (array_key_exists($propName, $data)) {
+                    $errors = array_merge($errors, validateAgainstSchema($data[$propName], $propSchema, "$path.$propName"));
+                }
+            }
+        }
+    }
+
+    return $errors;
+}
