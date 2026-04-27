@@ -1,0 +1,70 @@
+<?php
+/**
+ * api/reviews.php  – CRUD for course reviews
+ *
+ * GET    /api/reviews.php?course_id=N   → reviews for a course
+ * POST   /api/reviews.php               → submit review (student only)
+ * PUT    /api/reviews.php?id=N          → edit own review
+ * DELETE /api/reviews.php?id=N          → delete own review (or admin)
+ */
+
+require_once __DIR__ . '/../includes/config.php';
+
+header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type');
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
+
+$method = $_SERVER['REQUEST_METHOD'];
+$id     = (int)($_GET['id'] ?? 0);
+
+switch ($method) {
+    case 'GET':
+        $courseId = (int)($_GET['course_id'] ?? 0);
+        if (!$courseId) jsonResponse(['error' => 'course_id required'], 422);
+
+        $stmt = $db->prepare("
+            SELECT r.review_id, r.rating, r.comment, r.created_at,
+                   CONCAT(u.first_name,' ',u.last_name) AS student_name
+            FROM reviews r
+            JOIN users u ON u.user_id = r.student_id
+            WHERE r.course_id = ?
+            ORDER BY r.created_at DESC
+        ");
+        $stmt->execute([$courseId]);
+        jsonResponse(['data' => $stmt->fetchAll()]);
+        break;
+
+    case 'POST':
+        if (!isLoggedIn()) jsonResponse(['error' => 'Unauthenticated'], 401);
+        $data     = json_decode(file_get_contents('php://input'), true);
+        $courseId = (int)($data['course_id'] ?? 0);
+        $rating   = (int)($data['rating'] ?? 0);
+        $comment  = sanitizeInput($data['comment'] ?? '');
+
+        if (!$courseId || $rating < 1 || $rating > 5) {
+            jsonResponse(['error' => 'course_id and rating (1-5) required'], 422);
+        }
+
+        $stmt = $db->prepare("INSERT INTO reviews (course_id, student_id, rating, comment) VALUES (?,?,?,?)
+                               ON DUPLICATE KEY UPDATE rating=VALUES(rating), comment=VALUES(comment)");
+        $stmt->execute([$courseId, $_SESSION['user_id'], $rating, $comment]);
+        jsonResponse(['message' => 'Review saved'], 201);
+        break;
+
+    case 'DELETE':
+        if (!isLoggedIn()) jsonResponse(['error' => 'Unauthenticated'], 401);
+        if (!$id) jsonResponse(['error' => 'Review ID required'], 400);
+
+        // Only allow deleting own review or admin
+        $clause = $_SESSION['user_role'] === 'admin' ? 'review_id = ?' : 'review_id = ? AND student_id = ?';
+        $params = $_SESSION['user_role'] === 'admin' ? [$id] : [$id, $_SESSION['user_id']];
+        $db->prepare("DELETE FROM reviews WHERE $clause")->execute($params);
+        jsonResponse(['message' => 'Review deleted']);
+        break;
+
+    default:
+        jsonResponse(['error' => 'Method not allowed'], 405);
+}
