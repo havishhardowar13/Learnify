@@ -1,6 +1,6 @@
 <?php
 // chatbot.php - Learnify Onboarding Chatbot Backend
-// Place this file in the ROOT of your Learnify project
+
 
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
