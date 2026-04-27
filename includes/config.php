@@ -110,7 +110,7 @@ if (isset($_GET['debug']) && $_GET['debug'] == 'session') {
 // Define BASE_URL for your local setup
 if ($_SERVER['SERVER_NAME'] == 'localhost' || $_SERVER['SERVER_NAME'] == '127.0.0.1') {
     // For local development
-    define('BASE_URL', 'http://localhost/Learnify-main/');
+    define('BASE_URL', 'http://localhost/Learnify/');
 } else {
     // For production (update with your actual domain)
     define('BASE_URL', 'https://yourdomain.com/');
