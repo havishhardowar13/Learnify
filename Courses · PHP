@@ -1,0 +1,270 @@
+<?php
+/**
+ * api/courses.php
+ * REST API endpoint for Courses resource.
+ *
+ * Routes:
+ *   GET    /api/courses.php          → list all (with pagination & search)
+ *   GET    /api/courses.php?id=N     → single course
+ *   POST   /api/courses.php          → create  (instructor/admin only)
+ *   PUT    /api/courses.php?id=N     → update  (instructor/admin only)
+ *   DELETE /api/courses.php?id=N     → delete  (instructor/admin only)
+ */
+
+require_once __DIR__ . '/../includes/config.php';
+
+// ── CORS headers (allow consumption from same origin / Postman) ────────────
+header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization');
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
+
+$method = $_SERVER['REQUEST_METHOD'];
+$id     = isset($_GET['id']) ? (int) $_GET['id'] : null;
+
+// ── Router ─────────────────────────────────────────────────────────────────
+switch ($method) {
+
+    // ── GET ──────────────────────────────────────────────────────────────
+    case 'GET':
+        if ($id) {
+            getCourse($db, $id);
+        } else {
+            getCourses($db);
+        }
+        break;
+
+    // ── POST ─────────────────────────────────────────────────────────────
+    case 'POST':
+        requireApiAuth(['instructor', 'admin']);
+        $data = json_decode(file_get_contents('php://input'), true);
+        createCourse($db, $data);
+        break;
+
+    // ── PUT ──────────────────────────────────────────────────────────────
+    case 'PUT':
+        requireApiAuth(['instructor', 'admin']);
+        if (!$id) jsonResponse(['error' => 'Course ID required'], 400);
+        $data = json_decode(file_get_contents('php://input'), true);
+        updateCourse($db, $id, $data);
+        break;
+
+    // ── DELETE ───────────────────────────────────────────────────────────
+    case 'DELETE':
+        requireApiAuth(['instructor', 'admin']);
+        if (!$id) jsonResponse(['error' => 'Course ID required'], 400);
+        deleteCourse($db, $id);
+        break;
+
+    default:
+        jsonResponse(['error' => 'Method not allowed'], 405);
+}
+
+// ── Handler functions ──────────────────────────────────────────────────────
+
+function getCourses(PDO $db): void {
+    $page     = max(1, (int)($_GET['page'] ?? 1));
+    $limit    = min(20, max(1, (int)($_GET['limit'] ?? 6)));
+    $offset   = ($page - 1) * $limit;
+    $search   = trim($_GET['search'] ?? '');
+    $category = (int)($_GET['category'] ?? 0);
+    $level    = $_GET['level'] ?? '';
+
+    $where = ['c.is_published = 1'];
+    $params = [];
+
+    if ($search !== '') {
+        $where[]    = '(c.title LIKE ? OR c.description LIKE ?)';
+        $params[]   = "%$search%";
+        $params[]   = "%$search%";
+    }
+    if ($category > 0) { $where[] = 'c.category_id = ?'; $params[] = $category; }
+    if (in_array($level, ['beginner','intermediate','advanced'])) {
+        $where[] = 'c.level = ?'; $params[] = $level;
+    }
+
+    $whereSQL = implode(' AND ', $where);
+
+    // Total count
+    $countStmt = $db->prepare("SELECT COUNT(*) FROM courses c WHERE $whereSQL");
+    $countStmt->execute($params);
+    $total = (int) $countStmt->fetchColumn();
+
+    // Paginated results with instructor name and category name
+    $sql = "
+        SELECT c.course_id, c.title, c.slug, c.description, c.price, c.level,
+               c.thumbnail, c.is_published, c.created_at,
+               cat.name AS category,
+               CONCAT(u.first_name, ' ', u.last_name) AS instructor,
+               COUNT(DISTINCT e.enrollment_id) AS enrolled_count,
+               ROUND(AVG(r.rating), 1) AS rating,
+               COUNT(DISTINCT r.review_id) AS reviews
+        FROM courses c
+        JOIN categories cat ON cat.category_id = c.category_id
+        JOIN users u ON u.user_id = c.instructor_id
+        LEFT JOIN enrollments e ON e.course_id = c.course_id
+        LEFT JOIN reviews r ON r.course_id = c.course_id
+        WHERE $whereSQL
+        GROUP BY c.course_id
+        ORDER BY c.created_at DESC
+        LIMIT ? OFFSET ?
+    ";
+
+    $stmt = $db->prepare($sql);
+    $stmt->execute(array_merge($params, [$limit, $offset]));
+    $courses = $stmt->fetchAll();
+
+    jsonResponse([
+        'data'       => $courses,
+        'pagination' => [
+            'total'        => $total,
+            'per_page'     => $limit,
+            'current_page' => $page,
+            'last_page'    => (int) ceil($total / $limit),
+        ]
+    ]);
+}
+
+function getCourse(PDO $db, int $id): void {
+    $sql = "
+        SELECT c.*, cat.name AS category,
+               CONCAT(u.first_name,' ',u.last_name) AS instructor,
+               COUNT(DISTINCT e.enrollment_id) AS enrolled_count,
+               ROUND(AVG(r.rating),1) AS rating,
+               COUNT(DISTINCT r.review_id) AS reviews
+        FROM courses c
+        JOIN categories cat ON cat.category_id = c.category_id
+        JOIN users u ON u.user_id = c.instructor_id
+        LEFT JOIN enrollments e ON e.course_id = c.course_id
+        LEFT JOIN reviews r ON r.course_id = c.course_id
+        WHERE c.course_id = ?
+        GROUP BY c.course_id
+    ";
+    $stmt = $db->prepare($sql);
+    $stmt->execute([$id]);
+    $course = $stmt->fetch();
+
+    if (!$course) jsonResponse(['error' => 'Course not found'], 404);
+
+    // Fetch tags (many-to-many)
+    $tagStmt = $db->prepare("SELECT t.name FROM tags t JOIN course_tag ct ON ct.tag_id = t.tag_id WHERE ct.course_id = ?");
+    $tagStmt->execute([$id]);
+    $course['tags'] = $tagStmt->fetchAll(PDO::FETCH_COLUMN);
+
+    jsonResponse(['data' => $course]);
+}
+
+function createCourse(PDO $db, ?array $data): void {
+    if (!$data) jsonResponse(['error' => 'Invalid JSON body'], 400);
+
+    $required = ['title', 'category_id', 'description', 'price', 'level'];
+    foreach ($required as $field) {
+        if (empty($data[$field])) {
+            jsonResponse(['error' => "Field '$field' is required"], 422);
+        }
+    }
+
+    $slug = preg_replace('/[^a-z0-9-]/', '', strtolower(str_replace(' ', '-', $data['title'])));
+
+    $stmt = $db->prepare("
+        INSERT INTO courses (instructor_id, category_id, title, slug, description, price, level, is_published)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ");
+    $stmt->execute([
+        $_SESSION['user_id'],
+        (int) $data['category_id'],
+        sanitizeInput($data['title']),
+        $slug,
+        sanitizeInput($data['description']),
+        (float) $data['price'],
+        $data['level'],
+        (int)($data['is_published'] ?? 0),
+    ]);
+
+    $courseId = $db->lastInsertId();
+
+    // Sync tags (many-to-many)
+    if (!empty($data['tags']) && is_array($data['tags'])) {
+        syncTags($db, $courseId, $data['tags']);
+    }
+
+    jsonResponse(['message' => 'Course created', 'course_id' => $courseId], 201);
+}
+
+function updateCourse(PDO $db, int $id, ?array $data): void {
+    if (!$data) jsonResponse(['error' => 'Invalid JSON body'], 400);
+
+    $stmt = $db->prepare("SELECT course_id, instructor_id FROM courses WHERE course_id = ?");
+    $stmt->execute([$id]);
+    $course = $stmt->fetch();
+    if (!$course) jsonResponse(['error' => 'Course not found'], 404);
+
+    // Only the owner instructor or admin can update
+    if ($_SESSION['user_role'] !== 'admin' && $course['instructor_id'] != $_SESSION['user_id']) {
+        jsonResponse(['error' => 'Forbidden'], 403);
+    }
+
+    $updates = [];
+    $params  = [];
+
+    $allowed = ['title', 'description', 'price', 'level', 'category_id', 'is_published'];
+    foreach ($allowed as $field) {
+        if (array_key_exists($field, $data)) {
+            $updates[] = "$field = ?";
+            $params[]  = $data[$field];
+        }
+    }
+
+    if (empty($updates)) jsonResponse(['error' => 'No fields to update'], 400);
+
+    $params[] = $id;
+    $db->prepare("UPDATE courses SET " . implode(', ', $updates) . " WHERE course_id = ?")->execute($params);
+
+    if (!empty($data['tags']) && is_array($data['tags'])) {
+        syncTags($db, $id, $data['tags']);
+    }
+
+    jsonResponse(['message' => 'Course updated']);
+}
+
+function deleteCourse(PDO $db, int $id): void {
+    $stmt = $db->prepare("SELECT course_id FROM courses WHERE course_id = ?");
+    $stmt->execute([$id]);
+    if (!$stmt->fetch()) jsonResponse(['error' => 'Course not found'], 404);
+
+    $db->prepare("DELETE FROM courses WHERE course_id = ?")->execute([$id]);
+    jsonResponse(['message' => 'Course deleted']);
+}
+
+// ── Many-to-many tag sync ──────────────────────────────────────────────────
+
+function syncTags(PDO $db, int $courseId, array $tagNames): void {
+    $db->prepare("DELETE FROM course_tag WHERE course_id = ?")->execute([$courseId]);
+
+    foreach ($tagNames as $tagName) {
+        $tagName = sanitizeInput($tagName);
+        $slug    = strtolower(str_replace(' ', '-', $tagName));
+
+        $stmt = $db->prepare("INSERT IGNORE INTO tags (name, slug) VALUES (?, ?)");
+        $stmt->execute([$tagName, $slug]);
+
+        $tagStmt = $db->prepare("SELECT tag_id FROM tags WHERE slug = ?");
+        $tagStmt->execute([$slug]);
+        $tagId = $tagStmt->fetchColumn();
+
+        $db->prepare("INSERT IGNORE INTO course_tag (course_id, tag_id) VALUES (?, ?)")->execute([$courseId, $tagId]);
+    }
+}
+
+// ── API authentication ─────────────────────────────────────────────────────
+
+function requireApiAuth(array $allowedRoles): void {
+    if (!isLoggedIn()) {
+        jsonResponse(['error' => 'Unauthenticated'], 401);
+    }
+    if (!in_array($_SESSION['user_role'], $allowedRoles)) {
+        jsonResponse(['error' => 'Forbidden'], 403);
+    }
+}
