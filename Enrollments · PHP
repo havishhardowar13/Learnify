@@ -1,0 +1,78 @@
+<?php
+/**
+ * api/enrollments.php
+ * Manages the MANY-TO-MANY relationship between students and courses.
+ *
+ * GET    /api/enrollments.php?student_id=N  → list enrollments for a student
+ * POST   /api/enrollments.php               → enroll student in course
+ * DELETE /api/enrollments.php?course_id=N   → unenroll
+ */
+
+require_once __DIR__ . '/../includes/config.php';
+
+header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type');
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
+
+requireApiAuth(['student', 'instructor', 'admin']);
+
+$method = $_SERVER['REQUEST_METHOD'];
+
+switch ($method) {
+    case 'GET':
+        $studentId = (int)($_GET['student_id'] ?? $_SESSION['user_id']);
+        $stmt = $db->prepare("
+            SELECT e.enrollment_id, e.enrolled_at, e.progress, e.completed_at,
+                   c.course_id, c.title, c.price, c.level,
+                   cat.name AS category,
+                   CONCAT(u.first_name,' ',u.last_name) AS instructor
+            FROM enrollments e
+            JOIN courses c ON c.course_id = e.course_id
+            JOIN categories cat ON cat.category_id = c.category_id
+            JOIN users u ON u.user_id = c.instructor_id
+            WHERE e.student_id = ?
+            ORDER BY e.enrolled_at DESC
+        ");
+        $stmt->execute([$studentId]);
+        jsonResponse(['data' => $stmt->fetchAll()]);
+        break;
+
+    case 'POST':
+        $data = json_decode(file_get_contents('php://input'), true);
+        $courseId = (int)($data['course_id'] ?? 0);
+        if (!$courseId) jsonResponse(['error' => 'course_id required'], 422);
+
+        // Check course exists
+        $check = $db->prepare("SELECT course_id FROM courses WHERE course_id = ? AND is_published = 1");
+        $check->execute([$courseId]);
+        if (!$check->fetch()) jsonResponse(['error' => 'Course not found'], 404);
+
+        // Check not already enrolled
+        $exists = $db->prepare("SELECT enrollment_id FROM enrollments WHERE student_id = ? AND course_id = ?");
+        $exists->execute([$_SESSION['user_id'], $courseId]);
+        if ($exists->fetch()) jsonResponse(['error' => 'Already enrolled'], 409);
+
+        $stmt = $db->prepare("INSERT INTO enrollments (student_id, course_id) VALUES (?, ?)");
+        $stmt->execute([$_SESSION['user_id'], $courseId]);
+        jsonResponse(['message' => 'Enrolled successfully', 'enrollment_id' => $db->lastInsertId()], 201);
+        break;
+
+    case 'DELETE':
+        $courseId = (int)($_GET['course_id'] ?? 0);
+        if (!$courseId) jsonResponse(['error' => 'course_id required'], 422);
+        $stmt = $db->prepare("DELETE FROM enrollments WHERE student_id = ? AND course_id = ?");
+        $stmt->execute([$_SESSION['user_id'], $courseId]);
+        jsonResponse(['message' => 'Unenrolled successfully']);
+        break;
+
+    default:
+        jsonResponse(['error' => 'Method not allowed'], 405);
+}
+
+function requireApiAuth(array $allowedRoles): void {
+    if (!isLoggedIn()) jsonResponse(['error' => 'Unauthenticated'], 401);
+    if (!in_array($_SESSION['user_role'], $allowedRoles)) jsonResponse(['error' => 'Forbidden'], 403);
+}
