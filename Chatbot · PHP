@@ -1,0 +1,100 @@
+<?php
+// chatbot.php - Learnify Onboarding Chatbot Backend
+// Place this file in the ROOT of your Learnify project
+
+header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: *');
+
+// Only accept POST requests
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    echo json_encode(['reply' => 'Invalid request method.']);
+    exit;
+}
+
+$message = isset($_POST['message']) ? strtolower(trim($_POST['message'])) : '';
+
+if (empty($message)) {
+    echo json_encode(['reply' => 'Please type a message first!']);
+    exit;
+}
+
+// ─────────────────────────────────────────────
+//  Q&A Knowledge Base — add more entries here
+// ─────────────────────────────────────────────
+$qa = [
+    // Q1 — What brings you here / getting started
+    [
+        'keywords' => ['start', 'begin', 'new', 'here', 'what', 'bring', 'why', 'hello', 'hi', 'hey', 'welcome', 'help'],
+        'reply'    => "👋 Welcome to Learnify! Whether you're here to learn a new skill, earn a certificate, or explore courses — you're in the right place. You can browse all available courses at the top of the page. What would you like to know?"
+    ],
+
+    // Q2 — Do I need an account?
+    [
+        'keywords' => ['account', 'register', 'sign up', 'signup', 'login', 'log in', 'create', 'join', 'free'],
+        'reply'    => "✅ You need a free account to enrol in courses. Head to the <a href='register.php'>Register page</a>, fill in your details, and you'll have instant access to all course enrolments — completely free to sign up!"
+    ],
+
+    // Q3 — How to enrol in a course
+    [
+        'keywords' => ['enrol', 'enroll', 'join course', 'how', 'take course', 'sign up course', 'get course', 'access'],
+        'reply'    => "📚 Enrolling is simple! Just click the <strong>\"Enrol Now\"</strong> button on any course card. Once enrolled, the course appears in your <a href='dashboard.php'>Student Dashboard</a> where you can track your progress anytime."
+    ],
+
+    // Q4 — Are courses free or paid?
+    [
+        'keywords' => ['price', 'cost', 'paid', 'free', 'money', 'fee', 'cheap', 'expensive', 'how much', 'dollar', '$'],
+        'reply'    => "💰 Courses are individually priced. For example: Web Development Fundamentals is <strong>$50</strong>, Graphic Design Essentials is <strong>$50</strong>, Digital Marketing Mastery is <strong>$75</strong>, and Data Science with Python is <strong>$120</strong>. Each price is shown on the course card."
+    ],
+
+    // Q5 — Certificates
+    [
+        'keywords' => ['certificate', 'cert', 'diploma', 'finish', 'complete', 'graduate', 'credential', 'award', 'recognised'],
+        'reply'    => "🎓 When you complete a course, you earn a <strong>Learnify Completion Certificate</strong>! You can download it directly from your <a href='dashboard.php'>Student Dashboard</a>. Our certificates are recognised by our partner employers."
+    ],
+
+    // Bonus — Courses available
+    [
+        'keywords' => ['course', 'courses', 'subjects', 'topics', 'what can', 'learn', 'available', 'offer'],
+        'reply'    => "📖 We currently offer: <strong>Web Development Fundamentals</strong>, <strong>Graphic Design Essentials</strong>, <strong>Data Science with Python</strong>, and <strong>Digital Marketing Mastery</strong>. <a href='courses.php'>Browse all courses here</a>."
+    ],
+
+    // Bonus — Contact / support
+    [
+        'keywords' => ['contact', 'support', 'help', 'problem', 'issue', 'email', 'reach', 'talk'],
+        'reply'    => "📬 Need more help? Visit our <a href='contact.php'>Contact page</a> and send us a message — our support team will get back to you as soon as possible."
+    ],
+
+    // Bonus — Instructors
+    [
+        'keywords' => ['instructor', 'teacher', 'tutor', 'expert', 'who teaches', 'trainer'],
+        'reply'    => "👩‍🏫 All Learnify courses are taught by industry experts with years of practical experience. You'll learn real-world skills from professionals actively working in their fields."
+    ],
+];
+
+// ─────────────────────────────────────────────
+//  Match user message against Q&A keywords
+// ─────────────────────────────────────────────
+$matched_reply = null;
+$best_score    = 0;
+
+foreach ($qa as $item) {
+    $score = 0;
+    foreach ($item['keywords'] as $keyword) {
+        if (strpos($message, $keyword) !== false) {
+            $score++;
+        }
+    }
+    if ($score > $best_score) {
+        $best_score    = $score;
+        $matched_reply = $item['reply'];
+    }
+}
+
+// Fallback if nothing matched
+if (!$matched_reply || $best_score === 0) {
+    $matched_reply = "🤖 I'm not sure about that one! You can <a href='contact.php'>contact our support team</a> or try asking me about: enrolling in courses, pricing, certificates, or creating an account.";
+}
+
+echo json_encode(['reply' => $matched_reply]);
+exit;
+?>
