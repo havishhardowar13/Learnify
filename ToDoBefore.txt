@@ -1,0 +1,91 @@
+STEP 1:
+In XAMPP Control Panel, click Config next to Apache → choose PHP (php.ini)
+The file opens in Notepad. Press Ctrl+F and search for each line below. If the line starts with a semicolon ;, remove it to uncomment it:
+
+ini  
+ 
+extension=pdo_mysql
+extension=mbstring
+extension=openssl
+extension=fileinfo
+extension=curl
+extension=zip
+extension=tokenizer	|
+extension=xml		|If you do not find these do not worry about it
+extension=ctype		|
+
+Save the file (Ctrl+S)
+Go back to XAMPP Control Panel and click Stop then Start next to Apache to restart it
+
+
+STEP 2:
+Laravel needs Apache's URL rewriting module to work.
+
+In XAMPP Control Panel, click Config next to Apache → choose httpd.conf
+Press Ctrl+F and search for:
+
+   #LoadModule rewrite_module
+
+Remove the # so the line reads:
+
+   LoadModule rewrite_module modules/mod_rewrite.so
+
+Now press Ctrl+F again and search for AllowOverride None. You will find a block that looks like this:
+
+apache   <Directory "C:/xampp/htdocs">
+       Options Indexes FollowSymLinks Includes ExecCGI
+       AllowOverride None
+       ...
+Change AllowOverride None to AllowOverride All
+Save the file and restart Apache in XAMPP Control Panel
+
+
+STEP 3:
+Open your browser and go to:
+
+   http://localhost/phpmyadmin
+
+Click New in the left sidebar
+In the Database name field type exactly:
+
+   lms_system
+
+Set the collation to utf8mb4_unicode_ci
+Click Create
+
+
+STEP 4:
+Open Command Prompt (search "cmd" in the Start menu)
+Navigate into the project folder:
+
+cmd   cd C:\xampp\htdocs\learnify-laravel
+
+Run:
+
+cmd   composer install
+
+
+STEP 5:
+In Command Prompt, still inside the project folder, run:
+	php artisan key:generate
+You should see:
+Application key set successfully.
+
+Run migrations and seed the database
+	php artisan migrate --seed
+This will create all the tables and insert demo data. You should see a list of green DONE messages, one for each migration. When it finishes, open phpMyAdmin and refresh — you should see the tables inside lms_system.
+
+Open the website
+Go to your browser and visit:
+	http://localhost/learnify-laravel/public
+The Learnify homepage should appear.
+
+
+
+
+The Learnify homepage should appear. You can then log in with any of these accounts:
+Role		email			password
+Admin-		admin@learnify.com	Admin@1234
+Instructor-	havish@learnify.com	Instructor@1234
+Student-	alice@example.com	Student@1234
+

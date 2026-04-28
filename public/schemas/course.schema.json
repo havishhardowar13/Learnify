@@ -1,0 +1,101 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://learnify.com/schemas/course.schema.json",
+  "title": "Course",
+  "description": "Schema for validating a Learnify course object — used at creation time (PHP API) and consumption time (jQuery/AJAX).",
+  "type": "object",
+  "required": ["title", "description", "price", "category"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "integer",
+      "description": "Auto-generated primary key — present in responses, omitted in create requests.",
+      "minimum": 1
+    },
+    "title": {
+      "type": "string",
+      "description": "Course title.",
+      "minLength": 5,
+      "maxLength": 255
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed course description.",
+      "minLength": 20,
+      "maxLength": 5000
+    },
+    "category": {
+      "type": "string",
+      "description": "Course category.",
+      "enum": [
+        "Web Development",
+        "Design",
+        "Data Science",
+        "Marketing",
+        "Cybersecurity",
+        "Business",
+        "Other"
+      ]
+    },
+    "price": {
+      "type": "number",
+      "description": "Course price in USD.",
+      "minimum": 0,
+      "maximum": 10000,
+      "multipleOf": 0.01
+    },
+    "original_price": {
+      "type": ["number", "null"],
+      "description": "Original price before discount. Null if no discount.",
+      "minimum": 0,
+      "maximum": 10000,
+      "multipleOf": 0.01
+    },
+    "duration": {
+      "type": ["string", "null"],
+      "description": "Estimated duration, e.g. '12 hours'.",
+      "maxLength": 50
+    },
+    "rating": {
+      "type": "number",
+      "description": "Average rating out of 5.",
+      "minimum": 0,
+      "maximum": 5,
+      "multipleOf": 0.1
+    },
+    "reviews_count": {
+      "type": "integer",
+      "description": "Number of reviews submitted.",
+      "minimum": 0
+    },
+    "is_published": {
+      "type": "boolean",
+      "description": "Whether the course is publicly visible."
+    },
+    "instructor": {
+      "type": ["object", "null"],
+      "description": "Instructor summary — only present in GET responses.",
+      "properties": {
+        "id":        { "type": "integer" },
+        "full_name": { "type": "string"  }
+      },
+      "required": ["id", "full_name"],
+      "additionalProperties": false
+    },
+    "enrolled_count": {
+      "type": "integer",
+      "description": "Number of students enrolled — only present in GET /api/courses/{id}.",
+      "minimum": 0
+    },
+    "created_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "ISO 8601 creation timestamp."
+    },
+    "updated_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "ISO 8601 last-updated timestamp."
+    }
+  }
+}
