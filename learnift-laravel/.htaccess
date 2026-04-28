@@ -1,0 +1,11 @@
+Options -MultiViews -Indexes
+
+# Redirect all requests to the /public folder
+# This allows the project to sit in htdocs/learnify-laravel/
+# and be accessed at http://localhost/learnify-laravel/public
+
+RewriteEngine On
+
+# If the request is not already going to /public, redirect it
+RewriteCond %{REQUEST_URI} !^/learnify-laravel/public
+RewriteRule ^(.*)$ /learnify-laravel/public/$1 [L,QSA]
